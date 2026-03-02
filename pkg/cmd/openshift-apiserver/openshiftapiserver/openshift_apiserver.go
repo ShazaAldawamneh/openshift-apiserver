@@ -327,7 +327,6 @@ func (c *completedConfig) withRouteAPIServer(delegateAPIServer genericapiserver.
 		ExtraConfig: routeapiserver.ExtraConfig{
 			KubeAPIServerClientConfig: c.ExtraConfig.KubeAPIServerClientConfig,
 			RouteAllocator:            c.ExtraConfig.RouteAllocator,
-			AllowExternalCertificates: true,
 			Codecs:                    legacyscheme.Codecs,
 			Scheme:                    legacyscheme.Scheme,
 		},

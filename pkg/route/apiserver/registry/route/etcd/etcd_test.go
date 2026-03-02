@@ -58,7 +58,7 @@ func newStorage(t *testing.T, allocator HostnameGenerator) (*REST, *etcdtesting.
 	etcdStorageConfigForRoutes := &storagebackend.ConfigForResource{Config: *etcdStorage, GroupResource: schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}}
 	restOptions := generic.RESTOptions{StorageConfig: etcdStorageConfigForRoutes, Decorator: generic.UndecoratedStorage, DeleteCollectionWorkers: 1, ResourcePrefix: "routes"}
 	fake := fake.NewSimpleClientset(&corev1.SecretList{})
-	storage, _, err := NewREST(restOptions, allocator, &testSAR{allow: true}, fake.CoreV1(), true)
+	storage, _, err := NewREST(restOptions, allocator, &testSAR{allow: true}, fake.CoreV1())
 	if err != nil {
 		t.Fatal(err)
 	}

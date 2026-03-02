@@ -15,7 +15,6 @@ import (
 	testclient "k8s.io/client-go/kubernetes/fake"
 
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/openshift/library-go/pkg/route"
 	routeapi "github.com/openshift/openshift-apiserver/pkg/route/apis/route"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -53,7 +52,7 @@ func (t *testSecretGetter) Secrets(_ string) corev1client.SecretInterface {
 
 func TestEmptyHostDefaulting(t *testing.T) {
 	ctx := apirequest.NewContext()
-	strategy := NewStrategy(testAllocator{}, &testSAR{allow: true}, &testSecretGetter{}, true)
+	strategy := NewStrategy(testAllocator{}, &testSAR{allow: true}, &testSecretGetter{})
 
 	hostlessCreatedRoute := &routeapi.Route{}
 	strategy.Validate(ctx, hostlessCreatedRoute)
@@ -82,7 +81,7 @@ func TestEmptyHostDefaulting(t *testing.T) {
 
 func TestEmptyHostDefaultingWhenSubdomainSet(t *testing.T) {
 	ctx := apirequest.NewContext()
-	strategy := NewStrategy(testAllocator{}, &testSAR{allow: true}, &testSecretGetter{}, true)
+	strategy := NewStrategy(testAllocator{}, &testSAR{allow: true}, &testSecretGetter{})
 
 	hostlessCreatedRoute := &routeapi.Route{}
 	strategy.Validate(ctx, hostlessCreatedRoute)
@@ -169,7 +168,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 		expectedSubdomain string
 
 		// field for externalCertificate
-		opts   route.RouteValidationOptions
 		secret *corev1.Secret
 
 		errs  int
@@ -460,8 +458,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          false,
 			errs:           4,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:     "create-with-external-certificate-allowed",
@@ -478,8 +474,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "create-with-external-certificate-allowed-but-missing-secret",
@@ -490,8 +484,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:     "create-with-external-certificate-allowed-but-incorrect-secret-type",
@@ -508,8 +500,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-changed-to-certificate-denied",
@@ -521,8 +511,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          false,
 			errs:           2,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-changed-to-certificate-allowed",
@@ -534,8 +522,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:     "certificate-changed-to-external-certificate-denied",
@@ -554,8 +540,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          false,
 			errs:           5,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:     "certificate-changed-to-external-certificate-allowed",
@@ -574,8 +558,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "certificate-changed-to-external-certificate-allowed-but-missing-secret",
@@ -588,8 +570,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:     "certificate-changed-to-external-certificate-allowed-but-incorrect-secret-type",
@@ -608,8 +588,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:     "external-certificate-unchanged-denied",
@@ -628,8 +606,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          false,
 			errs:           4,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:     "external-certificate-unchanged-allowed",
@@ -648,8 +624,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-unchanged-allowed-but-missing-secret",
@@ -662,8 +636,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:     "external-certificate-unchanged-allowed-but-incorrect-secret-type",
@@ -682,8 +654,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-changed-denied",
@@ -702,8 +672,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			},
 			allow: false,
 			errs:  4,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-changed-allowed",
@@ -722,8 +690,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			},
 			allow: true,
 			errs:  0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-changed-allowed-but-missing-secret",
@@ -736,8 +702,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			secret:         &corev1.Secret{},
 			allow:          true,
 			errs:           1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-changed-allowed-but-incorrect-secret-type",
@@ -756,8 +720,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			},
 			allow: true,
 			errs:  1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-removed-denied",
@@ -770,8 +732,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			allow:          false,
 			// removing certificate info is allowed
 			errs: 0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-removed-allowed",
@@ -783,8 +743,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-removed-and-set-nil-tls-denied",
@@ -797,8 +755,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			allow:          false,
 			// removing certificate info is allowed
 			errs: 0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-removed-and-set-nil-tls-allowed",
@@ -810,8 +766,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			wildcardPolicy: routeapi.WildcardPolicyNone,
 			allow:          true,
 			errs:           0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-added-denied",
@@ -830,8 +784,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			},
 			allow: false,
 			errs:  4,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-added-allowed",
@@ -850,8 +802,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			},
 			allow: true,
 			errs:  0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-added-allowed-but-missing-secret",
@@ -864,8 +814,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			secret:         &corev1.Secret{},
 			allow:          true,
 			errs:           1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-added-allowed-but-incorrect-secret-type",
@@ -884,8 +832,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			},
 			allow: true,
 			errs:  1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-added-from-nil-tls-denied",
@@ -904,8 +850,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			},
 			allow: false,
 			errs:  4,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-added-from-nil-tls-allowed",
@@ -924,8 +868,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			},
 			allow: true,
 			errs:  0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-added-from-nil-tls-allowed-but-missing-secret",
@@ -938,8 +880,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			secret:         &corev1.Secret{},
 			allow:          true,
 			errs:           1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
 		},
 		{
 			name:           "external-certificate-added-from-nil-tls-allowed-but-incorrect-secret-type",
@@ -958,38 +898,6 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			},
 			allow: true,
 			errs:  1,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
-		},
-		{
-			name:     "certificate-changed-to-external-certificate-denied-and-featuregate-is-not-set",
-			host:     "host",
-			expected: "host",
-			oldHost:  "host",
-			// if the featuregate was disabled, and ExternalCertificate wasn't previously set, apiserver will strip ExternalCertificate field.
-			// https://github.com/openshift/openshift-apiserver/blob/1fac5e7e3a6153efae875185af2dba48fbad41ab/pkg/route/apiserver/registry/route/strategy.go#L73-L93
-			tls:            &routeapi.TLSConfig{Termination: routeapi.TLSTerminationEdge, ExternalCertificate: nil},
-			oldTLS:         &routeapi.TLSConfig{Termination: routeapi.TLSTerminationEdge, Certificate: "a"},
-			wildcardPolicy: routeapi.WildcardPolicyNone,
-			allow:          false,
-			errs:           0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: false},
-		},
-		{
-			name:     "certificate-changed-to-external-certificate-allowed-but-featuregate-is-not-set",
-			host:     "host",
-			expected: "host",
-			oldHost:  "host",
-			// if the featuregate was disabled, and ExternalCertificate wasn't previously set, apiserver will strip ExternalCertificate field.
-			// https://github.com/openshift/openshift-apiserver/blob/1fac5e7e3a6153efae875185af2dba48fbad41ab/pkg/route/apiserver/registry/route/strategy.go#L73-L93
-			tls:            &routeapi.TLSConfig{Termination: routeapi.TLSTerminationEdge, ExternalCertificate: nil},
-			oldTLS:         &routeapi.TLSConfig{Termination: routeapi.TLSTerminationEdge, Certificate: "a"},
-			wildcardPolicy: routeapi.WildcardPolicyNone,
-			allow:          true,
-			errs:           0,
-
-			opts: route.RouteValidationOptions{AllowExternalCertificates: false},
 		},
 	}
 
@@ -1017,7 +925,7 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 
 			sar := &testSAR{allow: tc.allow}
 			secretGetter := &testSecretGetter{namespace: testNamespace, secret: tc.secret}
-			strategy := NewStrategy(testAllocator{}, sar, secretGetter, tc.opts.AllowExternalCertificates)
+			strategy := NewStrategy(testAllocator{}, sar, secretGetter)
 
 			var errs field.ErrorList
 			if len(tc.oldHost) > 0 || len(tc.oldSubdomain) > 0 || tc.oldTLS != nil {
@@ -1058,65 +966,9 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 	}
 }
 
-func TestExternalCertRemoval(t *testing.T) {
-	ctx := apirequest.NewContext()
-	ctx = apirequest.WithUser(ctx, &user.DefaultInfo{Name: "bob"})
-
-	withExternalCert := &routeapi.Route{
-		Spec: routeapi.RouteSpec{
-			TLS: &routeapi.TLSConfig{
-				ExternalCertificate: &routeapi.LocalObjectReference{
-					Name: "serving-cert",
-				},
-			},
-		},
-	}
-
-	{
-		noExternalCertificates := NewStrategy(nil, nil, nil, false)
-
-		freshRoute := withExternalCert.DeepCopy()
-		noExternalCertificates.PrepareForCreate(ctx, freshRoute)
-		if freshRoute.Spec.TLS.ExternalCertificate != nil {
-			t.Errorf("still has external cert")
-		}
-
-		// cannot add external certs to routes that don't have them.
-		freshNoCertRoute := &routeapi.Route{}
-		freshRoute = withExternalCert.DeepCopy()
-		noExternalCertificates.PrepareForUpdate(ctx, freshRoute, freshNoCertRoute)
-		if freshRoute.Spec.TLS.ExternalCertificate != nil {
-			t.Errorf("still has external cert")
-		}
-
-		// routes with existing external certificates are allowed to keep them
-		freshRoute = withExternalCert.DeepCopy()
-		noExternalCertificates.PrepareForUpdate(ctx, freshRoute, freshRoute)
-		if freshRoute.Spec.TLS.ExternalCertificate == nil {
-			t.Errorf("should have external cert")
-		}
-	}
-
-	{
-		allowExternalCertificates := NewStrategy(nil, nil, nil, true)
-
-		freshRoute := withExternalCert.DeepCopy()
-		allowExternalCertificates.PrepareForCreate(ctx, freshRoute)
-		if freshRoute.Spec.TLS.ExternalCertificate == nil {
-			t.Errorf("should have external cert")
-		}
-
-		freshRoute = withExternalCert.DeepCopy()
-		allowExternalCertificates.PrepareForUpdate(ctx, freshRoute, freshRoute)
-		if freshRoute.Spec.TLS.ExternalCertificate == nil {
-			t.Errorf("should have external cert")
-		}
-	}
-}
-
 func TestRouteGenerationManagement(t *testing.T) {
 	ctx := apirequest.NewContext()
-	strategy := NewStrategy(testAllocator{}, &testSAR{allow: true}, &testSecretGetter{}, true)
+	strategy := NewStrategy(testAllocator{}, &testSAR{allow: true}, &testSecretGetter{})
 
 	simpleRoute := &routeapi.Route{}
 	strategy.Validate(ctx, simpleRoute)

@@ -35,22 +35,20 @@ type HostnameGenerator interface {
 type routeStrategy struct {
 	runtime.ObjectTyper
 	names.NameGenerator
-	hostnameGenerator         HostnameGenerator
-	sarClient                 SubjectAccessReviewInterface
-	secretsGetter             corev1client.SecretsGetter
-	allowExternalCertificates bool
+	hostnameGenerator HostnameGenerator
+	sarClient         SubjectAccessReviewInterface
+	secretsGetter     corev1client.SecretsGetter
 }
 
 // NewStrategy initializes the default logic that applies when creating and updating
 // Route objects via the REST API.
-func NewStrategy(allocator HostnameGenerator, sarClient SubjectAccessReviewInterface, secretsGetter corev1client.SecretsGetter, allowExternalCertificates bool) routeStrategy {
+func NewStrategy(allocator HostnameGenerator, sarClient SubjectAccessReviewInterface, secretsGetter corev1client.SecretsGetter) routeStrategy {
 	return routeStrategy{
-		ObjectTyper:               legacyscheme.Scheme,
-		NameGenerator:             names.SimpleNameGenerator,
-		hostnameGenerator:         allocator,
-		sarClient:                 sarClient,
-		secretsGetter:             secretsGetter,
-		allowExternalCertificates: allowExternalCertificates,
+		ObjectTyper:       legacyscheme.Scheme,
+		NameGenerator:     names.SimpleNameGenerator,
+		hostnameGenerator: allocator,
+		sarClient:         sarClient,
+		secretsGetter:     secretsGetter,
 	}
 }
 
@@ -60,7 +58,7 @@ func (routeStrategy) NamespaceScoped() bool {
 
 func (s routeStrategy) routeValidationOptions() routecommon.RouteValidationOptions {
 	return routecommon.RouteValidationOptions{
-		AllowExternalCertificates: s.allowExternalCertificates,
+		AllowExternalCertificates: true,
 	}
 }
 
@@ -69,13 +67,6 @@ func (s routeStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object)
 	route.Status = routeapi.RouteStatus{}
 	route.Generation = 1
 	stripEmptyDestinationCACertificate(route)
-
-	// In kube APIs, disabled fields are stripped from inbound objects.
-	// This provides parity with prior releases and other unknown fields in kube.
-	// Example of stripping these values in pods: https://github.com/kubernetes/kubernetes/blob/master/pkg/registry/core/pod/strategy.go#L108
-	if !s.allowExternalCertificates && route.Spec.TLS != nil && route.Spec.TLS.ExternalCertificate != nil {
-		route.Spec.TLS.ExternalCertificate = nil
-	}
 }
 
 func (s routeStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
@@ -88,15 +79,6 @@ func (s routeStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Ob
 	// Prevents "immutable field" errors when applying the same route definition used to create
 	if len(route.Spec.Host) == 0 {
 		route.Spec.Host = oldRoute.Spec.Host
-	}
-
-	// strip the field if it wasn't previously set and it was disabled.
-	// I didn't bother to do this in the initial PR since OCP doesn't allow featuregates to transition back to disabled
-	// but since I'm in the code adding comments, this an easy thing to fix up now and future-us may allow the transition.
-	if !s.allowExternalCertificates && (oldRoute.Spec.TLS == nil || oldRoute.Spec.TLS.ExternalCertificate == nil) {
-		if route.Spec.TLS != nil && route.Spec.TLS.ExternalCertificate != nil {
-			route.Spec.TLS.ExternalCertificate = nil
-		}
 	}
 
 	// Any changes to the spec increment the generation number.
@@ -150,7 +132,7 @@ type routeStatusStrategy struct {
 	routeStrategy
 }
 
-var StatusStrategy = routeStatusStrategy{NewStrategy(nil, nil, nil, false)}
+var StatusStrategy = routeStatusStrategy{NewStrategy(nil, nil, nil)}
 
 func (routeStatusStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
 	newRoute := obj.(*routeapi.Route)
