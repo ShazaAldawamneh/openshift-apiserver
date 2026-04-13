@@ -18,12 +18,12 @@ require (
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
-	github.com/openshift-eng/openshift-tests-extension v0.0.0-20251113163031-356b66aa5c24
-	github.com/openshift/api v0.0.0-20260105191300-d1c4dc4fd37b
+	github.com/openshift-eng/openshift-tests-extension v0.0.0-20260408205138-ec501c2bf4a5
+	github.com/openshift/api v0.0.0-20260420133342-d6cd61231721
 	github.com/openshift/apiserver-library-go v0.0.0-20251105084845-112ef95500de
 	github.com/openshift/build-machinery-go v0.0.0-20251023084048-5d77c1a5e5af
 	github.com/openshift/client-go v0.0.0-20251205093018-96a6cbc1420c
-	github.com/openshift/library-go v0.0.0-20251205073205-ab8d51820e0b
+	github.com/openshift/library-go v0.0.0-20260309173530-9ed71ac3148f
 	github.com/openshift/runtime-utils v0.0.0-20230921210328-7bdb5b9c177b
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
@@ -194,7 +194,7 @@ replace (
 	k8s.io/api => k8s.io/api v0.34.1
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.34.1
 	k8s.io/apimachinery => k8s.io/apimachinery v0.34.1
-	k8s.io/apiserver => github.com/openshift/kubernetes-apiserver v0.0.0-20260211130612-1431f3222f03 // points to openshift-apiserver-4.21-kubernetes-1.34.1
+	k8s.io/apiserver => github.com/openshift/kubernetes-apiserver v0.0.0-20260415154523-acdcc04896b5 // points to openshift-apiserver-4.22-kubernetes-1.34.1
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.34.1
 	k8s.io/client-go => k8s.io/client-go v0.34.1
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.34.1
