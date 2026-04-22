@@ -22,8 +22,6 @@ type ExtraConfig struct {
 	KubeAPIServerClientConfig *restclient.Config
 	RouteAllocator            *routehostassignment.SimpleAllocationPlugin
 
-	AllowExternalCertificates bool
-
 	// TODO these should all become local eventually
 	Scheme *runtime.Scheme
 	Codecs serializer.CodecFactory
@@ -111,7 +109,6 @@ func (c *completedConfig) newV1RESTStorage() (map[string]rest.Storage, error) {
 		c.ExtraConfig.RouteAllocator,
 		authorizationClient.SubjectAccessReviews(),
 		kubeClient.CoreV1(),
-		c.ExtraConfig.AllowExternalCertificates,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error building REST storage: %v", err)
