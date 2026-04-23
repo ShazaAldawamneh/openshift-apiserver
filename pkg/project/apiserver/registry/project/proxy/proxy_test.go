@@ -21,6 +21,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 
+	"github.com/openshift/api/project"
 	oapi "github.com/openshift/openshift-apiserver/pkg/api"
 	projectapi "github.com/openshift/openshift-apiserver/pkg/project/apis/project"
 )
@@ -318,7 +319,12 @@ func TestDeleteProject(t *testing.T) {
 				},
 			},
 			expectedStatus: &metav1.Status{Status: metav1.StatusFailure},
-			expectedErr:    errors.New("validating preconditions: uid precondition \"one\" does not match project uid \"two\""),
+			expectedErr: fmt.Errorf("validating preconditions: %w",
+				kerrors.NewConflict(
+					project.Resource("project"),
+					"test",
+					fmt.Errorf("precondition failed: uid %q does not match current uid %q", "one", "two"),
+				)),
 		},
 		{
 			name: "has validation, getting project succeeds, resourceVersion precondition validation failed, validation not called, request fails",
@@ -351,7 +357,12 @@ func TestDeleteProject(t *testing.T) {
 				},
 			},
 			expectedStatus: &metav1.Status{Status: metav1.StatusFailure},
-			expectedErr:    errors.New("validating preconditions: resourceVersion precondition \"12345\" does not match project resourceVersion \"12347\""),
+			expectedErr: fmt.Errorf("validating preconditions: %w",
+				kerrors.NewConflict(
+					project.Resource("project"),
+					"test",
+					fmt.Errorf("precondition failed: resourceVersion %q does not match current resourceVersion %q", "12345", "12347"),
+				)),
 		},
 		{
 			name: "no validation, delete successful, request succeeds, no retries happen",

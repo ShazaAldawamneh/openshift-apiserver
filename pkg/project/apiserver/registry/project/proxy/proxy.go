@@ -322,17 +322,27 @@ func (s *REST) getProjectForDeletion(ctx context.Context, name string) (*project
 	return projectObj, nil
 }
 
-func validateDeletePreconditionsForProject(project *projectapi.Project, deleteOptions *metav1.DeleteOptions) error {
+func validateDeletePreconditionsForProject(proj *projectapi.Project, deleteOptions *metav1.DeleteOptions) error {
 	if deleteOptions == nil || deleteOptions.Preconditions == nil {
 		return nil
 	}
 
-	if deleteOptions.Preconditions.UID != nil && project.UID != *deleteOptions.Preconditions.UID {
-		return fmt.Errorf("uid precondition %q does not match project uid %q", *deleteOptions.Preconditions.UID, project.UID)
+	if deleteOptions.Preconditions.UID != nil && proj.UID != *deleteOptions.Preconditions.UID {
+		return kerrors.NewConflict(
+			project.Resource("project"),
+			proj.Name,
+			fmt.Errorf("precondition failed: uid %q does not match current uid %q",
+				*deleteOptions.Preconditions.UID, proj.UID),
+		)
 	}
 
-	if deleteOptions.Preconditions.ResourceVersion != nil && project.ResourceVersion != *deleteOptions.Preconditions.ResourceVersion {
-		return fmt.Errorf("resourceVersion precondition %q does not match project resourceVersion %q", *deleteOptions.Preconditions.ResourceVersion, project.ResourceVersion)
+	if deleteOptions.Preconditions.ResourceVersion != nil && proj.ResourceVersion != *deleteOptions.Preconditions.ResourceVersion {
+		return kerrors.NewConflict(
+			project.Resource("project"),
+			proj.Name,
+			fmt.Errorf("precondition failed: resourceVersion %q does not match current resourceVersion %q",
+				*deleteOptions.Preconditions.ResourceVersion, proj.ResourceVersion),
+		)
 	}
 
 	return nil
