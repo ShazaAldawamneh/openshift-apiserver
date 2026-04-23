@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -73,7 +74,7 @@ func TestCreateProjectBadObject(t *testing.T) {
 	if obj != nil {
 		t.Errorf("Expected nil, got %v", obj)
 	}
-	if strings.Index(err.Error(), "not a project:") == -1 {
+	if !strings.Contains(err.Error(), "not a project:") {
 		t.Errorf("Expected 'not an project' error, got %v", err)
 	}
 }
@@ -196,21 +197,24 @@ func (r *reactor) React(action ktesting.Action) (bool, runtime.Object, error) {
 
 func newReactor(verb, resource string, reaction reactionFunc, expectedCalls int) *reactor {
 	return &reactor{
-		verb:          verb,
-		resource:      resource,
-		reaction:      reaction,
+		verb:     verb,
+		resource: resource,
+		reaction: reaction,
+		// Use -1 to ignore
 		expectedCalls: expectedCalls,
 	}
 }
 
 func TestDeleteProject(t *testing.T) {
 	type testcase struct {
-		name                    string
-		reactors                []*reactor
-		objectValidator         *objectValidator
-		options                 *metav1.DeleteOptions
-		expectedStatus          *metav1.Status
-		expectedErr             error
+		name            string
+		ctxFunc         func() context.Context
+		reactors        []*reactor
+		objectValidator *objectValidator
+		options         *metav1.DeleteOptions
+		expectedStatus  *metav1.Status
+		expectedErr     error
+		// Use -1 to ignore
 		expectedValidationCalls int
 	}
 
@@ -382,6 +386,31 @@ func TestDeleteProject(t *testing.T) {
 			expectedErr:    kerrors.NewConflict(corev1.Resource("namespaces"), "foo", errors.New("boom")),
 		},
 		{
+			name: "has validation, auto-generated preconditions, delete has initial conflict then succeeds",
+			reactors: []*reactor{
+				newReactor("get", "namespaces", func(called int) (runtime.Object, error) {
+					// Return different ResourceVersion each time to simulate state change
+					return &corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							UID:             "1234",
+							ResourceVersion: fmt.Sprintf("%d", 100+called),
+						},
+					}, nil
+				}, 2),
+				newReactor("delete", "namespaces", func(called int) (runtime.Object, error) {
+					if called < 1 {
+						return nil, kerrors.NewConflict(corev1.Resource("namespaces"), "foo", errors.New("first delete conflicts"))
+					}
+					return nil, nil
+				}, 2),
+			},
+			objectValidator: &objectValidator{
+				objectFunc: func(ctx context.Context, obj runtime.Object) error { return nil },
+			},
+			expectedValidationCalls: 2, // Validation runs twice
+			expectedStatus:          &metav1.Status{Status: metav1.StatusSuccess},
+		},
+		{
 			name: "no validation, delete has non-conflict failure, request not retried, request fails",
 			reactors: []*reactor{
 				newReactor("delete", "namespaces", func(called int) (runtime.Object, error) {
@@ -449,6 +478,37 @@ func TestDeleteProject(t *testing.T) {
 			expectedErr:             kerrors.NewConflict(corev1.Resource("namespaces"), "foo", errors.New("boom")),
 			expectedValidationCalls: 1,
 		},
+		{
+			name: "validation, context timeout during retries, returns last validation error instead of timeout error",
+			ctxFunc: func() context.Context {
+				ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+				// Silence lint warning: We just want to trigger the timeout, let the cancel leak
+				_ = cancel
+				return ctx
+			},
+			reactors: []*reactor{
+				newReactor("get", "namespaces", func(called int) (runtime.Object, error) {
+					// Return a valid namespace so GET succeeds quickly
+					return &corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:            "foo",
+							UID:             "test-uid",
+							ResourceVersion: "123",
+						},
+					}, nil
+				}, -1),
+			},
+			objectValidator: &objectValidator{
+				objectFunc: func(ctx context.Context, obj runtime.Object) error {
+					return errors.New("admission denied: failing for test purpose")
+				},
+			},
+			expectedStatus: &metav1.Status{Status: metav1.StatusFailure},
+			// Should return the actual validation error (lastErr), not context.DeadlineExceeded
+			expectedErr: errors.New("validating project: admission denied: failing for test purpose"),
+			// Number of calls depends on how many retries fit in 50ms, so ignore call count
+			expectedValidationCalls: -1,
+		},
 	}
 
 	for _, tc := range testcases {
@@ -471,7 +531,12 @@ func TestDeleteProject(t *testing.T) {
 				client: client.CoreV1().Namespaces(),
 			}
 
-			obj, _, err := storage.Delete(apirequest.NewContext(), "foo", validationFunc, tc.options)
+			ctx := apirequest.NewContext()
+			if tc.ctxFunc != nil {
+				ctx = tc.ctxFunc()
+			}
+
+			obj, _, err := storage.Delete(ctx, "foo", validationFunc, tc.options)
 			switch {
 			case err != nil && tc.expectedErr == nil:
 				t.Fatalf("received an unexpected error: %v", err)
@@ -485,7 +550,7 @@ func TestDeleteProject(t *testing.T) {
 				t.Fatalf("received an unexpected status. expected status: %v , received status: %v", tc.expectedStatus, obj.(*metav1.Status))
 			}
 
-			if tc.objectValidator != nil {
+			if tc.objectValidator != nil && tc.expectedValidationCalls >= 0 {
 				if tc.objectValidator.called != tc.expectedValidationCalls {
 					t.Fatalf("expected validation to be called %d times, but was called %d times", tc.expectedValidationCalls, tc.objectValidator.called)
 				}
@@ -493,7 +558,7 @@ func TestDeleteProject(t *testing.T) {
 
 			if len(tc.reactors) > 0 {
 				for _, reactor := range tc.reactors {
-					if reactor.called != reactor.expectedCalls {
+					if reactor.expectedCalls >= 0 && reactor.called != reactor.expectedCalls {
 						t.Fatalf("expected reaction for %q to be called %d times, but was called %d times", fmt.Sprintf("%s %s", reactor.verb, reactor.resource), reactor.expectedCalls, reactor.called)
 					}
 				}

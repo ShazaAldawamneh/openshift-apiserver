@@ -255,7 +255,7 @@ func (s *REST) Delete(ctx context.Context, name string, objectFunc rest.Validate
 		Factor:   2,
 	}
 	err := wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
-		project, err := s.getProjectForDeletion(ctx, name, &opts)
+		project, err := s.getProjectForDeletion(ctx, name)
 		if err != nil {
 			lastErr = fmt.Errorf("getting project for deletion: %w", err)
 			return false, nil
@@ -263,8 +263,7 @@ func (s *REST) Delete(ctx context.Context, name string, objectFunc rest.Validate
 
 		// Do not retry if the deletion preconditions are invalid because
 		// the request will always fail.
-		err = validateDeletePreconditionsForProject(project, &opts)
-		if err != nil {
+		if err := validateDeletePreconditionsForProject(project, &opts); err != nil {
 			return false, fmt.Errorf("validating preconditions: %w", err)
 		}
 
@@ -279,7 +278,7 @@ func (s *REST) Delete(ctx context.Context, name string, objectFunc rest.Validate
 		// If the user *did* supply preconditions, we already inherited them and
 		// should continue using them.
 		deleteOpts := opts
-		userProvidedPreconditions := (options != nil && options.Preconditions != nil)
+		userProvidedPreconditions := opts.Preconditions != nil
 		if !userProvidedPreconditions {
 			deleteOpts.Preconditions = &metav1.Preconditions{
 				UID:             &project.UID,
@@ -307,7 +306,7 @@ func (s *REST) Delete(ctx context.Context, name string, objectFunc rest.Validate
 	return &metav1.Status{Status: metav1.StatusSuccess}, false, nil
 }
 
-func (s *REST) getProjectForDeletion(ctx context.Context, name string, deleteOptions *metav1.DeleteOptions) (*projectapi.Project, error) {
+func (s *REST) getProjectForDeletion(ctx context.Context, name string) (*projectapi.Project, error) {
 	getOpts := metav1.GetOptions{}
 
 	obj, err := s.Get(ctx, name, &getOpts)
