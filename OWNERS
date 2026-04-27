@@ -1,11 +1,7 @@
 reviewers:
-  - p0lyn0mial
-  - benluddy
+  - control-plane-approvers
   - sanchezl
-  - dgrisonnet
 approvers:
-  - p0lyn0mial
-  - benluddy
+  - control-plane-approvers
   - sanchezl
-  - dgrisonnet
 component: openshift-apiserver
