@@ -512,6 +512,7 @@ func TestCreateImageStreamTag(t *testing.T) {
 		expectError     bool
 		errorTargetKind string
 		errorTargetID   string
+		expectedOutput  *imageapi.ImageStreamTag
 	}{
 		"valid istag": {
 			istag: &imageapi.ImageStreamTag{
@@ -522,6 +523,18 @@ func TestCreateImageStreamTag(t *testing.T) {
 				Image: imageapi.Image{ObjectMeta: metav1.ObjectMeta{Name: "10"}, DockerImageReference: "foo/bar/baz"},
 				Tag: &imageapi.TagReference{
 					Name:            "latest",
+					From:            &kapi.ObjectReference{Kind: "DockerImage", Name: "foo/bar/baz"},
+					ReferencePolicy: imageapi.TagReferencePolicy{Type: imageapi.SourceTagReferencePolicy},
+				},
+			},
+			expectedOutput: &imageapi.ImageStreamTag{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   "default",
+					Name:        "test:tag",
+					Annotations: map[string]string{},
+				},
+				Tag: &imageapi.TagReference{
+					Name:            "tag",
 					From:            &kapi.ObjectReference{Kind: "DockerImage", Name: "foo/bar/baz"},
 					ReferencePolicy: imageapi.TagReferencePolicy{Type: imageapi.SourceTagReferencePolicy},
 				},
@@ -548,6 +561,40 @@ func TestCreateImageStreamTag(t *testing.T) {
 				},
 				Image: imageapi.Image{ObjectMeta: metav1.ObjectMeta{Name: "10"}, DockerImageReference: "foo/bar/baz"},
 			},
+			expectedOutput: nil,
+		},
+		"create with annotations": {
+			istag: &imageapi.ImageStreamTag{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "test:tag",
+					Annotations: map[string]string{
+						"set":         "true",
+						"description": "test tag",
+					},
+				},
+				Image: imageapi.Image{ObjectMeta: metav1.ObjectMeta{Name: "10"}, DockerImageReference: "foo/bar/baz"},
+				Tag: &imageapi.TagReference{
+					Name:            "tag",
+					From:            &kapi.ObjectReference{Kind: "DockerImage", Name: "foo/bar/baz"},
+					ReferencePolicy: imageapi.TagReferencePolicy{Type: imageapi.SourceTagReferencePolicy},
+				},
+			},
+			expectedOutput: &imageapi.ImageStreamTag{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "test:tag",
+					Annotations: map[string]string{
+						"set":         "true",
+						"description": "test tag",
+					},
+				},
+				Tag: &imageapi.TagReference{
+					Name:            "tag",
+					From:            &kapi.ObjectReference{Kind: "DockerImage", Name: "foo/bar/baz"},
+					ReferencePolicy: imageapi.TagReferencePolicy{Type: imageapi.SourceTagReferencePolicy},
+				},
+			},
 		},
 	}
 
@@ -557,7 +604,7 @@ func TestCreateImageStreamTag(t *testing.T) {
 			defer server.Terminate(t)
 
 			client.Put(
-				context.TODO(),
+				t.Context(),
 				etcdtesting.AddPrefix("/imagestreams/default/test"),
 				runtime.EncodeOrDie(legacyscheme.Codecs.LegacyCodec(imagev1.SchemeGroupVersion),
 					&imageapi.ImageStream{
@@ -573,7 +620,7 @@ func TestCreateImageStreamTag(t *testing.T) {
 				))
 
 			ctx := apirequest.WithUser(apirequest.NewDefaultContext(), &fakeUser{})
-			_, err := storage.Create(ctx, tc.istag, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
+			result, err := storage.Create(ctx, tc.istag, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
 			gotErr := err != nil
 			if e, a := tc.expectError, gotErr; e != a {
 				t.Errorf("%s: Expected err=%v: got %v: %v", name, e, a, err)
@@ -585,7 +632,29 @@ func TestCreateImageStreamTag(t *testing.T) {
 					t.Errorf("%s: unexpected status: %#v", name, status.Details)
 					return
 				}
+			} else {
+				// Verify expected output for all successful creates
+				if tc.expectedOutput != nil {
+					createdISTag := result.(*imageapi.ImageStreamTag)
+					expected := tc.expectedOutput.DeepCopy()
+
+					// Copy dynamic fields from actual result
+					expected.ResourceVersion = createdISTag.ResourceVersion
+					expected.UID = createdISTag.UID
+					expected.CreationTimestamp = createdISTag.CreationTimestamp
+					expected.Generation = createdISTag.Generation
+					expected.Labels = createdISTag.Labels
+					expected.Image = createdISTag.Image
+					expected.LookupPolicy = createdISTag.LookupPolicy
+					expected.Conditions = createdISTag.Conditions
+					expected.Tag = createdISTag.Tag
+
+					if !reflect.DeepEqual(expected, createdISTag) {
+						t.Errorf("%s: output mismatch\nexpected: %#v\ngot: %#v", name, expected, createdISTag)
+					}
+				}
 			}
+
 		}()
 	}
 }
@@ -711,7 +780,7 @@ func TestUpdateImageStreamTag(t *testing.T) {
 			defer server.Terminate(t)
 
 			client.Put(
-				context.TODO(),
+				t.Context(),
 				etcdtesting.AddPrefix("/imagestreams/default/test"),
 				runtime.EncodeOrDie(legacyscheme.Codecs.LegacyCodec(imagev1.SchemeGroupVersion),
 					&imageapi.ImageStream{
@@ -841,7 +910,7 @@ func TestUpdateImageStreamTagMultipleConflicts(t *testing.T) {
 			defer server.Terminate(t)
 
 			client.Put(
-				context.TODO(),
+				t.Context(),
 				etcdtesting.AddPrefix("/imagestreams/default/test"),
 				runtime.EncodeOrDie(legacyscheme.Codecs.LegacyCodec(imagev1.SchemeGroupVersion),
 					&imageapi.ImageStream{
@@ -1030,7 +1099,7 @@ func TestUpdateRetryImageStreamTag(t *testing.T) {
 			defer server.Terminate(t)
 
 			client.Put(
-				context.TODO(),
+				t.Context(),
 				etcdtesting.AddPrefix("/imagestreams/default/test"),
 				runtime.EncodeOrDie(legacyscheme.Codecs.LegacyCodec(imagev1.SchemeGroupVersion),
 					&imageapi.ImageStream{
