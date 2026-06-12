@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	etcd "go.etcd.io/etcd/client/v3"
 	authorizationapi "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -533,11 +535,18 @@ func TestCreateImageStreamTag(t *testing.T) {
 					Name:        "test:tag",
 					Annotations: map[string]string{},
 				},
-				Tag: &imageapi.TagReference{
-					Name:            "tag",
-					From:            &kapi.ObjectReference{Kind: "DockerImage", Name: "foo/bar/baz"},
-					ReferencePolicy: imageapi.TagReferencePolicy{Type: imageapi.SourceTagReferencePolicy},
-				},
+				Tag: func() *imageapi.TagReference {
+					gen := int64(1)
+					return &imageapi.TagReference{
+						Name:       "tag",
+						From:       &kapi.ObjectReference{Kind: "DockerImage", Name: "foo/bar/baz"},
+						Generation: &gen,
+						ImportPolicy: imageapi.TagImportPolicy{
+							ImportMode: imageapi.ImportModeLegacy,
+						},
+						ReferencePolicy: imageapi.TagReferencePolicy{Type: imageapi.SourceTagReferencePolicy},
+					}
+				}(),
 			},
 		},
 		"invalid tag": {
@@ -589,11 +598,22 @@ func TestCreateImageStreamTag(t *testing.T) {
 						"description": "test tag",
 					},
 				},
-				Tag: &imageapi.TagReference{
-					Name:            "tag",
-					From:            &kapi.ObjectReference{Kind: "DockerImage", Name: "foo/bar/baz"},
-					ReferencePolicy: imageapi.TagReferencePolicy{Type: imageapi.SourceTagReferencePolicy},
-				},
+				Tag: func() *imageapi.TagReference {
+					gen := int64(1)
+					return &imageapi.TagReference{
+						Name: "tag",
+						Annotations: map[string]string{
+							"set":         "true",
+							"description": "test tag",
+						},
+						From:       &kapi.ObjectReference{Kind: "DockerImage", Name: "foo/bar/baz"},
+						Generation: &gen,
+						ImportPolicy: imageapi.TagImportPolicy{
+							ImportMode: imageapi.ImportModeLegacy,
+						},
+						ReferencePolicy: imageapi.TagReferencePolicy{Type: imageapi.SourceTagReferencePolicy},
+					}
+				}(),
 			},
 		},
 	}
@@ -636,21 +656,13 @@ func TestCreateImageStreamTag(t *testing.T) {
 				// Verify expected output for all successful creates
 				if tc.expectedOutput != nil {
 					createdISTag := result.(*imageapi.ImageStreamTag)
-					expected := tc.expectedOutput.DeepCopy()
 
-					// Copy dynamic fields from actual result
-					expected.ResourceVersion = createdISTag.ResourceVersion
-					expected.UID = createdISTag.UID
-					expected.CreationTimestamp = createdISTag.CreationTimestamp
-					expected.Generation = createdISTag.Generation
-					expected.Labels = createdISTag.Labels
-					expected.Image = createdISTag.Image
-					expected.LookupPolicy = createdISTag.LookupPolicy
-					expected.Conditions = createdISTag.Conditions
-					expected.Tag = createdISTag.Tag
-
-					if !reflect.DeepEqual(expected, createdISTag) {
-						t.Errorf("%s: output mismatch\nexpected: %#v\ngot: %#v", name, expected, createdISTag)
+					// Use cmp.Diff to compare, ignoring only the truly dynamic fields
+					diff := cmp.Diff(tc.expectedOutput, createdISTag,
+						cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion", "UID", "CreationTimestamp", "Generation"),
+					)
+					if diff != "" {
+						t.Errorf("%s: output mismatch (-expected +actual):\n%s", name, diff)
 					}
 				}
 			}
